@@ -4,12 +4,11 @@
 #include <string>       // Xử lý chuỗi
 #include <vector>       // Lưu trữ danh sách tài khoản, giao dịch
 #include <map>          // (Tùy chọn) Sử dụng nếu cần ánh xạ các cặp key-value
-#include <limits>
-#include <cstdlib>
-#include <ctime>
-#include <algorithm>
-#include <chrono>
-#include <ctime>
+#include <limits>       // Cung cấp thông tin về giá trị lớn nhất và nhỏ nhất của các kiểu dữ liệu.
+#include <cstdlib>      // Cung cấp các hàm để xử lý chuyển đổi và số ngẫu nhiên.
+#include <ctime>        // Hỗ trợ làm việc với thời gian và ngày tháng.
+#include <algorithm>    // Cung cấp các thuật toán thông dụng như sắp xếp và tìm kiếm.
+#include <chrono>       // Cung cấp chức năng đo lường thời gian chính xác và hiệu suất.
 
 using namespace std;
 fstream account_file("@account_database.txt", ios::in | ios::out); // Mở file database dạng đọc và ghi
@@ -32,10 +31,6 @@ public:
         : soTaiKhoan(stk), idGiaoDich(id), ngayGiaoDich(ngay), loaiGiaoDich(loai), soTien(tien), danhMuc(dm), ghiChu(note) {}
     string getID() const {
         return idGiaoDich;
-    }
-    void setID(string id)
-    {
-        
     }
     string getNgayGiaoDich() const {
         return ngayGiaoDich;
@@ -194,18 +189,22 @@ private:
     string nganHangLienKet;    // Tên ngân hàng liên kết (nếu có)
     vector<GiaoDich> danhSachGiaoDich; // Danh sách các giao dịch thuộc về tài khoản
     vector<DanhMucChiTieu> danhSachDanhMuc; // Danh sách các danh mục chi tiêu thuộc tài khoản
+    double soNo = 0.0;
 
 public:
     // Constructor
     taikhoan() {}
-    taikhoan(string soTk, string loaiTk, double soTien, string nganHang = "")
-        : soTaiKhoan(soTk), loaiTaiKhoan(loaiTk), soDu(soTien), nganHangLienKet(nganHang) {}
+    taikhoan(const string& stk, const string& loaiTk, double soDu, const string& nganHang)
+        : soTaiKhoan(stk), loaiTaiKhoan(loaiTk), soDu(soDu), nganHangLienKet(nganHang), soNo(0) {}
     string getSoTaiKhoan() const {
         return soTaiKhoan;
     }
     const vector<DanhMucChiTieu>& getDanhSachDanhMuc() const {
         return danhSachDanhMuc;
     }
+    double getSoNo(){
+    	return soNo;
+	}
     // Phương thức nhập thông tin tài khoản từ người dùng
     void khoiTaoTaiKhoan() {
         cout << "Nhap so tai khoan: "; cin >> soTaiKhoan;
@@ -213,6 +212,82 @@ public:
         cout << "Nhap so du ban dau: "; cin >> soDu;
         cout << "Nhap ngan hang lien ket (neu co): "; cin.ignore(); getline(cin, nganHangLienKet);
     }
+   
+   void traNo(double soTienTra) {
+    if (soTienTra <= 0) {
+        cout << "So tien tra khong hop le." << endl;
+        return;
+    }
+
+    if (soTienTra > soNo) {
+        cout << "Tra no vuot qua so no. Chi tra toi da: " << soNo << " VND." << endl;
+        
+        double phanDu = soTienTra - soNo; // Phần dư sau khi trả hết nợ
+        soDu += phanDu; // Cộng phần dư vào số dư
+        soDu -= soNo; // Trừ số dư theo đúng số nợ còn lại
+        cout << "Da tra: " << soNo << " VND" << endl;
+        cout << "So no con lai: 0 VND." << endl;
+        soNo = 0; // Xóa nợ
+    } else {
+        if (soTienTra > soDu) {
+            cout << "So du khong du de tra " << soTienTra << " VND. Can nap them tien hoac vay ngan hang." << endl;
+            return;
+        }
+        
+        soDu -= soTienTra; // Trừ số dư theo số tiền đã trả
+        soNo -= soTienTra; // Cập nhật số nợ còn lại
+    }
+
+    cout << "Da tra " << soTienTra << " VND." << endl;
+    cout << "So no con lai: " << soNo << " VND." << endl;
+    cout << "So du hien tai: " << soDu << " VND." << endl;
+}
+
+    //Ham xu ly khoan vay
+    void vayNganHang(double soTienVay)
+   {
+    if (soTienVay <= 0)
+    {
+        cout << "So tien vay khong hop le." << endl;
+        return;
+    }
+
+    // Cập nhật số dư và số nợ
+    soDu += soTienVay;
+    soNo += soTienVay;
+    cout << "Vay thanh cong " <<fixed<< setprecision(0)<< soTienVay <<"VND."<<endl;
+    cout<<"So du hien tai: " <<fixed<< setprecision(0)<< soDu <<"VND."<<endl;
+    cout<<"So no: " <<fixed<< setprecision(0)<< soNo << " VND." << endl;
+
+    // Lưu số nợ vào database
+    capNhatSoNoVaoDB();
+   }
+ 
+   void capNhatSoNoVaoDB()
+  {
+    fstream account_db("@account_database.txt", ios::in | ios::out);
+    if (!account_db.is_open())
+    {
+        cerr << "Khong the mo file database." << endl;
+        return;
+    }
+
+    string line;
+    streampos pos;
+    while (getline(account_db, line))
+    {
+        if (line.find("So tai khoan: " + soTaiKhoan) != string::npos)
+        {
+            pos = account_db.tellg(); // Lưu vị trí hiện tại
+            getline(account_db, line); // Bỏ qua dòng tiếp theo (loại tài khoản)
+            getline(account_db, line); // Bỏ qua dòng tiếp theo (số dư)
+            account_db << "So no: " <<fixed<< setprecision(0)<< soNo << endl; // Ghi số nợ
+            break;
+        }
+    }
+
+    account_db.close();
+   }
     
     //Ham khoi phuc du lieu giao dich
     void storageDatabaseCurrent()
@@ -245,34 +320,54 @@ public:
                     danhSachGiaoDich.push_back(gd);
                 }
             }
-            transaction_db_read.close();
+			transaction_db_read.close();
         }
-    }
-    
-    //Ham khoi phuc du lieu danh muc
-  void restoreCategoryDatabase()
+   }
+   
+   // Hàm đọc và khôi phục danh mục chi tiêu từ database cho tài khoản hiện tại
+void loadDanhMucChiTieu()
 {
-    fstream category_db_read("@category_database.txt", ios::in);
-    string line;
-    if (category_db_read.is_open()) {
-        while (getline(category_db_read, line)) {
-            if (line.find("Số tài khoản: " + soTaiKhoan) != string::npos) {
-                string tenDanhMuc;
-                double gioiHanChi, soTienDaChi;
-
-                // Đọc từng dòng danh mục chi tiêu
-                getline(category_db_read, line); tenDanhMuc = line.substr(10);
-                getline(category_db_read, line); gioiHanChi = stod(line.substr(20));
-                getline(category_db_read, line); soTienDaChi = stod(line.substr(15));
-
-                // Tạo đối tượng DanhMucChiTieu và thêm vào danh sách danh mục
-                DanhMucChiTieu dm(soTaiKhoan, tenDanhMuc, gioiHanChi, soTienDaChi);
-                danhSachDanhMuc.push_back(dm);
-            }
-        }
-        category_db_read.close();
+    fstream danhMucFile("@danh_muc_chi_tieu.txt", ios::in);
+    if (!danhMucFile.is_open())
+    {
+        cerr << "Khong the mo file danh muc chi tieu." << endl;
+        return;
     }
+
+    string line;
+    while (getline(danhMucFile, line))
+    {
+        // Kiểm tra xem dòng có chứa số tài khoản hiện tại không
+        if (line.find("So tai khoan: " + soTaiKhoan) != string::npos)
+        {
+            // Lấy tên danh mục
+            getline(danhMucFile, line);
+            string tenDanhMuc = line.substr(line.find(":") + 2); // Lấy tên danh mục sau dấu hai chấm
+
+            // Lấy giới hạn chi tiêu
+            getline(danhMucFile, line);
+            string gioiHanStr = line.substr(line.find(":") + 2); // Lấy giới hạn chi tiêu
+            double gioiHan = 0.0;
+            if (gioiHanStr.find("VND") != string::npos) // Kiểm tra "VND" trong chuỗi
+            {
+                gioiHanStr.erase(gioiHanStr.find("VND")); // Xóa "VND" khỏi chuỗi
+            }
+            gioiHan = stod(gioiHanStr); // Chuyển đổi sang số
+
+            // Lấy tổng chi tiêu
+            getline(danhMucFile, line); // Đọc dòng tổng chi tiêu, nhưng không cần dùng trong đây
+
+            // Tạo đối tượng danh mục chi tiêu và thêm vào danh sách
+            DanhMucChiTieu danhMuc(soTaiKhoan, tenDanhMuc, gioiHan); // Giả sử có constructor này
+            this->danhSachDanhMuc.push_back(danhMuc); // Thêm danh mục vào danh sách
+        }
+    }
+
+    danhMucFile.close();
 }
+
+
+
    string layThoiGianHienTai() {
     // Lấy thời gian hiện tại
     auto now = chrono::system_clock::now(); 
@@ -286,7 +381,7 @@ public:
 }
 
    void napTien(double soTien) {
-    if (soTien > 0) {
+    if (soTien >= 0) {
         soDu += soTien;
         string id = "GD" + to_string(danhSachGiaoDich.size() + 1);
         string thoiGianGiaoDich = layThoiGianHienTai(); // Lấy thời gian hiện tại
@@ -300,7 +395,8 @@ public:
         cout << fixed << setprecision(0);
         cout << "Da nap " << soTien << " vao tai khoan. So du hien tai: " << soDu << endl;
         cout << "Thoi gian giao dich: " << thoiGianGiaoDich << endl; // In thời gian giao dịch
-    } else {
+    }
+     else {
         cout << "So tien nap khong hop le." << endl;
     }
 }
@@ -314,10 +410,13 @@ public:
             danhSachGiaoDich.push_back(giaoDich);
             giaoDich.addTransactionToDB(); // Ghi giao dich vao DB
             cout << fixed << setprecision(0);
-            cout << "Da rut " << soTien << " tu tai khoan. So du hien tai: " << soDu << endl;
+            cout << "Da rut " << soTien << " tu tai khoan."<<endl;
+            cout<<"So du hien tai: " << soDu << endl;
         }
         else {
-            cout << "So du khong du hoac so tien khong hop le." << endl;
+            cout << "So du khong du de thuc hien giao dich! "<< endl;
+            cout << "Vui long nap tien (an phim 1) hoac vay tien tu ngan hang (an phim 8) de tiep tuc."<< endl;
+            return;
         }
     }
 
@@ -356,6 +455,9 @@ public:
         cout << "So du hien tai cua tai khoan: " << fixed<< setprecision(0)<< soDu<<" VND" << endl;
         return soDu;
     }
+    double inSoDu(){
+    	return soDu;
+	}
 
     void addAccountToDB() {
         account_file << endl;
@@ -565,7 +667,7 @@ void logIn()
         fstream transaction_db_read("@transaction_database.txt", ios::in);
         fstream category_db_read("@category_database.txt", ios::in);
         taiKhoanHienTai->storageDatabaseCurrent();
-//        taiKhoanHienTai->restoreCategoryDatabase();
+//        taiKhoanHienTai->loadDanhMucChiTieu(); // Gọi hàm khôi phục danh mục chi tiêu
     }
     else
     {
@@ -647,7 +749,9 @@ void chonMode(int &mode)
     }
     do
     {
-        cout << endl
+        cout << endl;
+        cout<< "--------------------------------------------\n"
+            << "So du hien tai: "<< fixed<< setprecision(0)<< taiKhoanHienTai->inSoDu() << " VND"<< endl
              << "--------------------------------------------\n"
              << "Chon chuc nang duoi day:" << endl
              << endl
@@ -658,11 +762,12 @@ void chonMode(int &mode)
              << "5. Them danh muc chi tieu" << endl
              << "6. Xem cac danh muc chi tieu" << endl
              << "7. Kiem tra no" << endl
+             << "8. Vay tien tu ngan hang" <<endl
              << "\n0. Ket thuc" << endl
              << endl;
-        cout << "Nhap chuc nang (0-7) ban muon thuc hien: ";
+        cout << "Nhap chuc nang (0-8) ban muon thuc hien: ";
         cin >> mode;
-    } while (mode > 7 || mode < 0);
+    } while (mode > 8 || mode < 0);
 
     // Xử lý các chế độ cho từng chức năng
     switch (mode)
@@ -735,7 +840,15 @@ void chonMode(int &mode)
             cout << "Danh muc " << danhMuc << " khong ton tai. Vui long tao danh muc truoc khi them giao dich." << endl;
             break;
         }
-
+        
+        // Kiểm tra số dư tài khoản
+        if (soTien > taiKhoanHienTai->xemSoDu())
+       {
+        cout << "So du khong du de thuc hien giao dich!"<< endl;
+		cout<< " Vui long nap tien (chon 1) hoac vay tien tu ngan hang (chon 8) de tiep tuc.\n";
+        return; // Quay lại menu chonMode
+       }
+       
         // Thêm giao dịch
         GiaoDich gd(taiKhoanHienTai->getSoTaiKhoan(), taoIdUser(), ngay, loai, soTien, danhMuc, ghiChu);
         taiKhoanHienTai->themGiaoDich(gd);
@@ -772,16 +885,44 @@ void chonMode(int &mode)
         taiKhoanHienTai->inTatCaDanhMuc(); // In tất cả danh mục của tài khoản hiện tại
         break;
     }
-    case 7:
-    { // Kiểm tra nợ
-        if (taiKhoanHienTai->xemSoDu() < 0)
+  case 7:
+{ // Kiểm tra và trả nợ
+    double soNo = taiKhoanHienTai->getSoNo(); // Lấy số nợ hiện tại
+    if (soNo > 0)
+    {
+        cout << "Ban dang no: " << soNo << " VND." << endl;
+
+        // Hỏi người dùng có muốn trả nợ không
+        cout << "Ban co muon tra no khong? (y/n): ";
+        char choice;
+        cin >> choice;
+        if (choice == 'y' || choice == 'Y')
         {
-            cout << "Ban dang no " << -taiKhoanHienTai->xemSoDu() << " VND." << endl;
+            double soTienTra;
+            cout << "Nhap so tien muon tra: ";
+            cin >> soTienTra;
+
+            // Gọi hàm trả nợ
+            taiKhoanHienTai->traNo(soTienTra); // Gọi hàm trả nợ
+            taiKhoanHienTai->capNhatSoDuVaoDB(); // Cập nhật số dư vào file
+            
+            double soDuHienTai = taiKhoanHienTai->xemSoDu();
+            double soTientraam;// Trừ tiền từ số dư
+            taiKhoanHienTai->capNhatSoDuVaoDB(); // Cập nhật số dư vào file
         }
-        else
-        {
-            cout << "Ban khong co no." << endl;
-        }
+    }
+    else
+    {
+        cout << "Ban khong co no." << endl;
+    }
+    break;
+}
+    case 8: // Vay tiền từ ngân hàng
+    {
+        double soTienVay;
+        cout << "Nhap so tien muon vay: ";
+        cin >> soTienVay;
+	    taiKhoanHienTai->vayNganHang(soTienVay); // Gọi hàm vay ngân hàng
         break;
     }
     case 0:
@@ -792,7 +933,7 @@ void chonMode(int &mode)
 // Hàm main
 int main()
 {
-    cout<< "Quan ly chi tieu HAIDANG - CHI TIEU THEO CACH CUA BAN!"<< endl;
+    cout<< "Quan ly chi tieu SMART MONEY - CHI TIEU THEO CACH CUA BAN!"<< endl;
     srand(time(0));
 //    docTatCaTaiKhoan();
     int mode = 1;
