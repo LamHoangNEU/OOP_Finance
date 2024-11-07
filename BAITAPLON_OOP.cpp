@@ -697,9 +697,9 @@ void logIn()
         else
         {
             cout << "Dang nhap that bai!\n";
-            cout<<"Ban can dang nhap truoc khi chon chuc nang!"<< endl;
             cout<< endl;
-            logIn();
+            exit(0);
+
         }
     }
 }
